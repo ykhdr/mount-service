@@ -8,7 +8,9 @@ import (
 func main() {
 	config := model.NewConfig()
 
-	server := api.NewMountServer(config)
+	//server := api.NewMountServer(config)
+	server := api.CreateNewServer(config)
 
-	api.FillRoute(server)
+	server.Run()
+
 }

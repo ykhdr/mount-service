@@ -3,6 +3,8 @@ package api
 import (
 	"crypto/sha256"
 	"crypto/subtle"
+	"github.com/gorilla/mux"
+	"log"
 	"mount-service/internal/db"
 	"mount-service/internal/model"
 	"net/http"
@@ -10,11 +12,16 @@ import (
 
 type MountServer struct {
 	credRepo *db.UserRepository
+	router   *mux.Router
 }
 
-func NewMountServer(config *model.Config) *MountServer {
+func CreateNewServer(config *model.Config) *MountServer {
 	credRepo := db.NewUserRepository(config)
-	return &MountServer{credRepo: credRepo}
+
+	server := &MountServer{credRepo: credRepo, router: &mux.Router{}}
+	server.setupRouter()
+
+	return server
 }
 
 func (s *MountServer) MountHandler(w http.ResponseWriter, req *http.Request) {
@@ -53,4 +60,14 @@ func (s *MountServer) BasicAuth(next http.HandlerFunc) http.HandlerFunc {
 		w.Header().Set("WWW-Authenticate", `Basic realm="restricted", charset="UTF-8"`)
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	}
+}
+
+func (s *MountServer) setupRouter() {
+	s.router.HandleFunc("/register", s.RegisterHandler).Methods("POST")
+	s.router.HandleFunc("/logout", s.BasicAuth(s.LogoutHandler)).Methods("POST")
+	s.router.HandleFunc("/mount", s.BasicAuth(s.MountHandler)).Methods("GET")
+}
+
+func (s *MountServer) Run() {
+	log.Fatal(http.ListenAndServe(":8080", s.router))
 }
