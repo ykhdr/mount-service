@@ -1,6 +1,7 @@
 package model
 
 import (
+	"errors"
 	"os"
 	"strconv"
 )
@@ -13,7 +14,7 @@ type Config struct {
 	DBPassword string
 }
 
-func NewConfig() *Config {
+func NewConfig() (*Config, error) {
 	dbHost := os.Getenv("DB_HOST")
 	dbName := os.Getenv("DB_NAME")
 	dbUser := os.Getenv("DB_USER")
@@ -21,7 +22,7 @@ func NewConfig() *Config {
 
 	dbPort, err := strconv.Atoi(os.Getenv("DB_PORT"))
 	if err != nil {
-		panic(err)
+		return nil, errors.Join(errors.New("DB_PORT isn't passed or not integer"), err)
 	}
 
 	return &Config{
@@ -30,6 +31,6 @@ func NewConfig() *Config {
 		DBPort:     dbPort,
 		DBUser:     dbUser,
 		DBPassword: dbPassword,
-	}
+	}, nil
 
 }
