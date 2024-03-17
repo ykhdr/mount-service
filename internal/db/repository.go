@@ -39,7 +39,7 @@ func NewUserRepository(config *model.Config) *UserRepository {
 
 func (repo *UserRepository) GetUser(username string) *model.User {
 
-	rows, err := repo.db.Query("SELECT * FROM users WHERE users.username=?", username)
+	rows, err := repo.db.Query("SELECT username, password, ip_addr FROM users WHERE username = $1;", username)
 	if err != nil {
 		log.WithError(err).Panicln("Error on db query")
 		return nil
