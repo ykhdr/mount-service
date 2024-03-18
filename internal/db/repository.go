@@ -5,7 +5,7 @@ import (
 	"fmt"
 	_ "github.com/lib/pq"
 	"github.com/sirupsen/logrus"
-	"mount-service/internal/model"
+	"mount-service/internal/models"
 )
 
 var log = logrus.New()
@@ -14,7 +14,7 @@ type UserRepository struct {
 	db *sql.DB
 }
 
-func NewUserRepository(config *model.Config) *UserRepository {
+func NewUserRepository(config *models.Config) *UserRepository {
 	connInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
 		config.DBHost,
 		config.DBPort,
@@ -37,7 +37,7 @@ func NewUserRepository(config *model.Config) *UserRepository {
 	return &UserRepository{db: db}
 }
 
-func (repo *UserRepository) GetUser(username string) *model.User {
+func (repo *UserRepository) GetUser(username string) *models.User {
 
 	rows, err := repo.db.Query("SELECT username, password, ip_addr FROM users WHERE username = $1;", username)
 	if err != nil {
@@ -55,7 +55,7 @@ func (repo *UserRepository) GetUser(username string) *model.User {
 		return nil
 	}
 
-	user := &model.User{}
+	user := &models.User{}
 	err = rows.Scan(user.Username)
 	if err != nil {
 		log.WithError(err).Error("Error on scan username from rows")
@@ -65,7 +65,7 @@ func (repo *UserRepository) GetUser(username string) *model.User {
 	return user
 }
 
-func (repo *UserRepository) AddUser(user model.User) error {
+func (repo *UserRepository) AddUser(user models.User) error {
 	_, err := repo.db.Exec("INSERT INTO users (username, password, ip_addr) VALUES ($1, $2, $3);", user.Username, user.Password, user.IpAddr)
 	if err != nil {
 		log.WithError(err).Panicln("Error on add db query")

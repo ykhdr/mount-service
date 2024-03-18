@@ -3,7 +3,7 @@ package main
 import (
 	log "github.com/sirupsen/logrus"
 	"mount-service/internal/api"
-	"mount-service/internal/model"
+	"mount-service/internal/models"
 	"os"
 )
 
@@ -15,7 +15,7 @@ func setupLogger() {
 
 func main() {
 
-	config, _ := model.NewConfig()
+	config, _ := models.NewConfig()
 
 	log.Infoln("Creating server...")
 

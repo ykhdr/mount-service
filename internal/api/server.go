@@ -9,17 +9,17 @@ import (
 
 	//"log"
 	"mount-service/internal/db"
-	"mount-service/internal/model"
+	"mount-service/internal/models"
 	"net/http"
 )
 
 type MountServer struct {
 	credRepo    *db.UserRepository
 	router      *mux.Router
-	activeUsers []*model.User
+	activeUsers []*models.User
 }
 
-func CreateNewServer(config *model.Config) *MountServer {
+func CreateNewServer(config *models.Config) *MountServer {
 	credRepo := db.NewUserRepository(config)
 
 	server := &MountServer{credRepo: credRepo, router: &mux.Router{}}
@@ -42,7 +42,7 @@ func (s *MountServer) RegisterHandler(w http.ResponseWriter, req *http.Request) 
 			"ip_addr":  ipAddr,
 		}).Infoln("User register...")
 
-		user := model.User{Username: username, Password: password, IpAddr: net.ParseIP(ipAddr)}
+		user := models.User{Username: username, Password: password, IpAddr: net.ParseIP(ipAddr)}
 		err := s.credRepo.AddUser(user)
 		if err != nil {
 			log.WithFields(log.Fields{
@@ -150,7 +150,7 @@ func (s *MountServer) Run() {
 	log.Fatal(http.ListenAndServe(":8080", s.router))
 }
 
-func findUserByUsername(users []*model.User, username string) (*model.User, int) {
+func findUserByUsername(users []*models.User, username string) (*models.User, int) {
 	for i, user := range users {
 		if user.Username == username {
 			return user, i
