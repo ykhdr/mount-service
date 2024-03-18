@@ -41,8 +41,7 @@ func (repo *UserRepository) GetUser(username string) *model.User {
 
 	rows, err := repo.db.Query("SELECT username, password, ip_addr FROM users WHERE username = $1;", username)
 	if err != nil {
-		log.WithError(err).Panicln("Error on db query")
-		return nil
+		log.WithError(err).Panicln("Error on get db query")
 	}
 
 	defer func(rows *sql.Rows) {
@@ -64,4 +63,13 @@ func (repo *UserRepository) GetUser(username string) *model.User {
 	}
 
 	return user
+}
+
+func (repo *UserRepository) AddUser(user model.User) error {
+	_, err := repo.db.Exec("INSERT INTO users (username, password, ip_addr) VALUES ($1, $2, $3);", user.Username, user.Password, user.IpAddr)
+	if err != nil {
+		log.WithError(err).Panicln("Error on add db query")
+	}
+
+	return nil
 }
