@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
+	"mount-service/internal/mount"
 	"net"
 
 	//"log"
@@ -16,13 +17,15 @@ import (
 type MountServer struct {
 	credRepo    *db.UserRepository
 	router      *mux.Router
+	mounter     *mount.Mounter
 	activeUsers []*models.User
 }
 
 func CreateNewServer(config *models.Config) *MountServer {
 	credRepo := db.NewUserRepository(config)
+	mounter := mount.NewMounter(config.HostUser, config.HostPassword)
 
-	server := &MountServer{credRepo: credRepo, router: &mux.Router{}}
+	server := &MountServer{credRepo: credRepo, router: &mux.Router{}, mounter: mounter, activeUsers: make([]*models.User, 0)}
 	server.setupRouter()
 
 	return server
