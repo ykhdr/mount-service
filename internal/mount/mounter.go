@@ -37,7 +37,9 @@ func (m *Mounter) MountAll(user *models.User, mountUsers []*models.User) error {
 	defer client.Close()
 
 	for _, mUser := range mountUsers {
-		go mountUser(client, mUser)
+		if user != mUser {
+			go mountUser(client, mUser)
+		}
 	}
 
 	return nil

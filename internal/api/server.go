@@ -3,10 +3,12 @@ package api
 import (
 	"crypto/sha256"
 	"crypto/subtle"
+	"errors"
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 	"mount-service/internal/mount"
 	"net"
+	"strings"
 
 	//"log"
 	"mount-service/internal/db"
@@ -38,30 +40,32 @@ func (s *MountServer) MountHandler(w http.ResponseWriter, req *http.Request) {
 func (s *MountServer) RegisterHandler(w http.ResponseWriter, req *http.Request) {
 	username, password, ok := req.BasicAuth()
 	if ok {
-		ipAddr := req.RemoteAddr
+		ipAddr, err := readUserIP(req)
+		if err != nil {
+			log.WithError(err).Errorln("Error on reading user IP")
+			log.Warningln("Unknown user tried register")
+			return
+		}
 		log.WithFields(log.Fields{
 			"username": username,
-			"password": password,
 			"ip_addr":  ipAddr,
 		}).Infoln("User register...")
 
-		user := models.User{Username: username, Password: password, IpAddr: net.ParseIP(ipAddr)}
-		err := s.credRepo.AddUser(user)
+		user := &models.User{Username: username, Password: password, IpAddr: ipAddr}
+		err = s.credRepo.AddUser(user)
 		if err != nil {
 			log.WithFields(log.Fields{
 				"username": username,
-				"password": password,
 				"ip_addr":  ipAddr,
 			}).WithError(err).Errorln("Error on creating user")
 
 			http.Error(w, "Can't create user", http.StatusInternalServerError)
 			return
 		}
-		s.activeUsers = append(s.activeUsers)
+		s.activeUsers = append(s.activeUsers, user)
 
 		log.WithFields(log.Fields{
 			"username": username,
-			"password": password,
 			"ip_addr":  ipAddr,
 		}).Infoln("User successfully register")
 		w.WriteHeader(http.StatusOK)
@@ -73,12 +77,11 @@ func (s *MountServer) RegisterHandler(w http.ResponseWriter, req *http.Request) 
 }
 
 func (s *MountServer) LogoutHandler(w http.ResponseWriter, req *http.Request) {
-	username, password, ok := req.BasicAuth()
+	username, _, ok := req.BasicAuth()
 	if ok {
 		ipAddr := req.RemoteAddr
 		log.WithFields(log.Fields{
 			"username": username,
-			"password": password,
 			"ip_addr":  ipAddr,
 		}).Infoln("User logout...")
 
@@ -86,7 +89,6 @@ func (s *MountServer) LogoutHandler(w http.ResponseWriter, req *http.Request) {
 		if user == nil {
 			log.WithFields(log.Fields{
 				"username": username,
-				"password": password,
 				"ip_addr":  ipAddr,
 			}).Warningln("User not in active users")
 
@@ -94,11 +96,10 @@ func (s *MountServer) LogoutHandler(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		s.activeUsers = append(s.activeUsers[:ind], s.activeUsers[ind:]...)
+		s.activeUsers = append(s.activeUsers[:ind], s.activeUsers[ind+1:]...)
 
 		log.WithFields(log.Fields{
 			"username": username,
-			"password": password,
 			"ip_addr":  ipAddr,
 		}).Infoln("User successfully logout")
 
@@ -124,7 +125,7 @@ func (s *MountServer) BasicAuth(next http.HandlerFunc) http.HandlerFunc {
 			}
 
 			expectedUsernameHash := sha256.Sum256([]byte(user.Username))
-			expectedPasswordHash := []byte(user.Password)
+			expectedPasswordHash := sha256.Sum256([]byte(user.Password))
 
 			usernameMatch := subtle.ConstantTimeCompare(usernameHash[:], expectedUsernameHash[:]) == 1
 			passwordMatch := subtle.ConstantTimeCompare(passwordHash[:], expectedPasswordHash[:]) == 1
@@ -151,6 +152,27 @@ func (s *MountServer) setupRouter() {
 
 func (s *MountServer) Run() {
 	log.Fatal(http.ListenAndServe(":8080", s.router))
+}
+
+func readUserIP(r *http.Request) (net.IP, error) {
+	ipAddr := r.Header.Get("X-Real-Ip")
+	if ipAddr == "" {
+		ipAddr = r.Header.Get("X-Forwarded-For")
+	}
+	if ipAddr == "" {
+		ipAddr = r.RemoteAddr
+	}
+
+	if strings.ContainsAny(ipAddr, "[::1]") {
+		return net.ParseIP("127.0.0.1"), nil
+	}
+
+	resolvedAddr, err := net.ResolveTCPAddr("tcp4", ipAddr)
+	if err != nil {
+		return nil, errors.New("error on resolving user IP addr")
+	}
+
+	return resolvedAddr.IP, nil
 }
 
 func findUserByUsername(users []*models.User, username string) (*models.User, int) {

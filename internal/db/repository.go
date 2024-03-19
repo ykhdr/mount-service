@@ -56,7 +56,7 @@ func (repo *UserRepository) GetUser(username string) *models.User {
 	}
 
 	user := &models.User{}
-	err = rows.Scan(user.Username)
+	err = rows.Scan(&user.Username, &user.Password, &user.IpAddr)
 	if err != nil {
 		log.WithError(err).Error("Error on scan username from rows")
 		return nil
@@ -65,8 +65,8 @@ func (repo *UserRepository) GetUser(username string) *models.User {
 	return user
 }
 
-func (repo *UserRepository) AddUser(user models.User) error {
-	_, err := repo.db.Exec("INSERT INTO users (username, password, ip_addr) VALUES ($1, $2, $3);", user.Username, user.Password, user.IpAddr)
+func (repo *UserRepository) AddUser(user *models.User) error {
+	_, err := repo.db.Exec("INSERT INTO users (username, password, ip_addr) VALUES ($1, $2, $3);", user.Username, user.Password, user.IpAddr.String())
 	if err != nil {
 		log.WithError(err).Panicln("Error on add db query")
 	}
