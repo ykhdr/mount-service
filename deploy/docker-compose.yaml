@@ -1,0 +1,38 @@
+version: '3.0'
+
+networks:
+  app:
+    driver: bridge
+
+volumes:
+  postgresql-data:
+    driver: local
+
+services:
+  mount-service:
+    build: ..
+#    depends_on:
+#      - postgres
+    ports:
+      - '8080:8080'
+    networks:
+      app:
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+
+  postgres:
+    image: postgres:alpine3.13
+    networks:
+      app:
+    volumes:
+      - postgresql-data:/var/lib/postgres/data
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
