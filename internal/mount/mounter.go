@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"golang.org/x/crypto/ssh"
 	"mount-service/internal/models"
+	"sync"
 )
 
 type Mounter struct {
@@ -36,12 +37,16 @@ func (m *Mounter) MountAll(user *models.User, mountUsers []*models.User) error {
 
 	defer client.Close()
 
+	wg := &sync.WaitGroup{}
+
 	for _, mUser := range mountUsers {
 		if user != mUser {
+			wg.Add(1)
 			go mountUser(client, mUser)
 		}
 	}
 
+	wg.Wait()
 	return nil
 }
 
