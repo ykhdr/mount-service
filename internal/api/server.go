@@ -34,7 +34,53 @@ func CreateNewServer(config *models.Config) *MountServer {
 }
 
 func (s *MountServer) MountHandler(w http.ResponseWriter, req *http.Request) {
+	username, _, ok := req.BasicAuth()
+	if ok {
+		ipAddr, err := readUserIP(req)
+		if err != nil {
+			log.WithError(err).Errorln("Error on reading user IP")
+			log.Warningln("Unknown user tried register")
+			http.Error(w, "Unknown user ip", http.StatusBadRequest)
+			return
+		}
 
+		user := s.credRepo.GetUser(username)
+		if user == nil {
+			log.WithFields(log.Fields{
+				"username": username,
+				"ip_addr":  ipAddr,
+			}).Warningln("User not found")
+			http.Error(w, "User not found", http.StatusBadRequest)
+			return
+		}
+		user.IpAddr = ipAddr
+
+		log.WithFields(log.Fields{
+			"username": user.Username,
+			"ip_addr":  user.IpAddr,
+		}).Infoln("User start mount...")
+
+		err = s.mounter.MountAll(user, s.activeUsers)
+		if err != nil {
+			log.WithError(err).
+				WithFields(log.Fields{
+					"username": user.Username,
+					"ip_addr":  user.IpAddr,
+				}).
+				Warningln("Error on mount active users")
+			http.Error(w, "Mounting error", http.StatusInternalServerError)
+			return
+		}
+
+		log.WithFields(log.Fields{
+			"username": user.Username,
+			"ip_addr":  user.IpAddr,
+		}).Infoln("User successfully mount")
+		w.WriteHeader(http.StatusOK)
+
+	} else {
+		http.Error(w, "Error on authorization", http.StatusBadRequest)
+	}
 }
 
 func (s *MountServer) RegisterHandler(w http.ResponseWriter, req *http.Request) {
@@ -44,6 +90,7 @@ func (s *MountServer) RegisterHandler(w http.ResponseWriter, req *http.Request) 
 		if err != nil {
 			log.WithError(err).Errorln("Error on reading user IP")
 			log.Warningln("Unknown user tried register")
+			http.Error(w, "Unknown user ip", http.StatusBadRequest)
 			return
 		}
 		log.WithFields(log.Fields{
