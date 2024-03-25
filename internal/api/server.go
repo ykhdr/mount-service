@@ -3,13 +3,9 @@ package api
 import (
 	"crypto/sha256"
 	"crypto/subtle"
-	"errors"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 	"mount-service/internal/mount"
-	"net"
-	"strings"
-
 	//"log"
 	"mount-service/internal/db"
 	"mount-service/internal/log"
@@ -141,6 +137,10 @@ func (s *MountServer) LogoutHandler(w http.ResponseWriter, req *http.Request) {
 			"ip_addr":  ipAddr,
 		}).Infoln("User logout...")
 
+		if ipAddr == "127.0.0.1" {
+			ipAddr = getOutboundIP().String()
+		}
+
 		user, ind := findUserByUsername(s.activeUsers, username)
 		if user == nil {
 			log.Logger.WithFields(logrus.Fields{
@@ -176,6 +176,7 @@ func (s *MountServer) BasicAuth(next http.HandlerFunc) http.HandlerFunc {
 
 			user := s.credRepo.GetUser(username)
 			if user == nil {
+				log.Logger.Infoln("User", username, "doesn't exists")
 				s.handleUnauthorized(w)
 				return
 			}
@@ -188,9 +189,11 @@ func (s *MountServer) BasicAuth(next http.HandlerFunc) http.HandlerFunc {
 
 			if usernameMatch && passwordMatch {
 				next.ServeHTTP(w, r)
+				log.Logger.Infoln("User", username, "successfully authorized")
 				return
 			}
 		}
+		log.Logger.Infoln("User", username, "has incorrect login or password")
 		s.handleUnauthorized(w)
 	}
 }
@@ -208,34 +211,4 @@ func (s *MountServer) setupRouter() {
 
 func (s *MountServer) Run() {
 	log.Logger.Fatal(http.ListenAndServe(":8080", s.router))
-}
-
-func readUserIP(r *http.Request) (net.IP, error) {
-	ipAddr := r.Header.Get("X-Real-Ip")
-	if ipAddr == "" {
-		ipAddr = r.Header.Get("X-Forwarded-For")
-	}
-	if ipAddr == "" {
-		ipAddr = r.RemoteAddr
-	}
-
-	if strings.Contains(ipAddr, "[::1]") {
-		return net.ParseIP("127.0.0.1"), nil
-	}
-
-	resolvedAddr, err := net.ResolveTCPAddr("tcp4", ipAddr)
-	if err != nil {
-		return nil, errors.New("error on resolving user IP addr")
-	}
-
-	return resolvedAddr.IP, nil
-}
-
-func findUserByUsername(users []*models.User, username string) (*models.User, int) {
-	for i, user := range users {
-		if user.Username == username {
-			return user, i
-		}
-	}
-	return nil, -1
 }

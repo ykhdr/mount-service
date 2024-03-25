@@ -42,7 +42,7 @@ func (m *Mounter) MountAll(user *models.User, mountUsers []*models.User) error {
 	for _, mUser := range mountUsers {
 		if user != mUser {
 			wg.Add(1)
-			go mountUser(client, mUser)
+			go mountUser(client, mUser, wg)
 		}
 	}
 
@@ -50,7 +50,7 @@ func (m *Mounter) MountAll(user *models.User, mountUsers []*models.User) error {
 	return nil
 }
 
-func mountUser(client *ssh.Client, mountUser *models.User) {
+func mountUser(client *ssh.Client, mountUser *models.User, wg *sync.WaitGroup) {
 	session, err := client.NewSession()
 	if err != nil {
 		// TODO log
@@ -76,4 +76,5 @@ func mountUser(client *ssh.Client, mountUser *models.User) {
 	}
 
 	fmt.Println("mountOutput:", string(mountOutput))
+	wg.Done()
 }
