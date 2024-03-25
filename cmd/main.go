@@ -1,27 +1,28 @@
 package main
 
 import (
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"mount-service/internal/api"
+	"mount-service/internal/log"
 	"mount-service/internal/models"
 	"os"
 )
 
 func setupLogger() {
-	log.SetLevel(log.DebugLevel)
-	log.SetFormatter(&log.TextFormatter{})
-	log.SetOutput(os.Stdout)
+	log.Logger.SetLevel(logrus.DebugLevel)
+	log.Logger.SetFormatter(&logrus.TextFormatter{})
+	log.Logger.SetOutput(os.Stdout)
 }
 
 func main() {
-
+	setupLogger()
 	config, _ := models.NewConfig()
 
-	log.Infoln("Creating server...")
+	log.Logger.Infoln("Creating server...")
 
 	server := api.CreateNewServer(config)
 
-	log.WithFields(log.Fields{
+	log.Logger.WithFields(logrus.Fields{
 		"port": 8080,
 	}).Infoln("Start listen port 8080...")
 

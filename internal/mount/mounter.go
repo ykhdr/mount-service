@@ -29,7 +29,7 @@ func (m *Mounter) MountAll(user *models.User, mountUsers []*models.User) error {
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 
-	client, err := ssh.Dial("tcp", user.IpAddr.String(), sshConfig)
+	client, err := ssh.Dial("tcp", user.IpAddr.String()+":22", sshConfig)
 	if err != nil {
 		// TODO log
 		return err

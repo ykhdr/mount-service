@@ -5,13 +5,14 @@ import (
 	"crypto/subtle"
 	"errors"
 	"github.com/gorilla/mux"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"mount-service/internal/mount"
 	"net"
 	"strings"
 
 	//"log"
 	"mount-service/internal/db"
+	"mount-service/internal/log"
 	"mount-service/internal/models"
 	"net/http"
 )
@@ -38,15 +39,15 @@ func (s *MountServer) MountHandler(w http.ResponseWriter, req *http.Request) {
 	if ok {
 		ipAddr, err := readUserIP(req)
 		if err != nil {
-			log.WithError(err).Errorln("Error on reading user IP")
-			log.Warningln("Unknown user tried register")
+			log.Logger.WithError(err).Errorln("Error on reading user IP")
+			log.Logger.Warningln("Unknown user tried register")
 			http.Error(w, "Unknown user ip", http.StatusBadRequest)
 			return
 		}
 
 		user := s.credRepo.GetUser(username)
 		if user == nil {
-			log.WithFields(log.Fields{
+			log.Logger.WithFields(logrus.Fields{
 				"username": username,
 				"ip_addr":  ipAddr,
 			}).Warningln("User not found")
@@ -55,15 +56,15 @@ func (s *MountServer) MountHandler(w http.ResponseWriter, req *http.Request) {
 		}
 		user.IpAddr = ipAddr
 
-		log.WithFields(log.Fields{
+		log.Logger.WithFields(logrus.Fields{
 			"username": user.Username,
 			"ip_addr":  user.IpAddr,
 		}).Infoln("User start mount...")
 
 		err = s.mounter.MountAll(user, s.activeUsers)
 		if err != nil {
-			log.WithError(err).
-				WithFields(log.Fields{
+			log.Logger.WithError(err).
+				WithFields(logrus.Fields{
 					"username": user.Username,
 					"ip_addr":  user.IpAddr,
 				}).
@@ -72,7 +73,7 @@ func (s *MountServer) MountHandler(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		log.WithFields(log.Fields{
+		log.Logger.WithFields(logrus.Fields{
 			"username": user.Username,
 			"ip_addr":  user.IpAddr,
 		}).Infoln("User successfully mount")
@@ -88,20 +89,28 @@ func (s *MountServer) RegisterHandler(w http.ResponseWriter, req *http.Request) 
 	if ok {
 		ipAddr, err := readUserIP(req)
 		if err != nil {
-			log.WithError(err).Errorln("Error on reading user IP")
-			log.Warningln("Unknown user tried register")
+			log.Logger.WithError(err).Errorln("Error on reading user IP")
+			log.Logger.Warningln("Unknown user tried register")
 			http.Error(w, "Unknown user ip", http.StatusBadRequest)
 			return
 		}
-		log.WithFields(log.Fields{
+
+		user := s.credRepo.GetUser(username)
+		if user != nil {
+			log.Logger.Infoln("Registered user try register")
+			http.Error(w, "User already register", http.StatusBadRequest)
+			return
+		}
+
+		log.Logger.WithFields(logrus.Fields{
 			"username": username,
 			"ip_addr":  ipAddr,
 		}).Infoln("User register...")
 
-		user := &models.User{Username: username, Password: password, IpAddr: ipAddr}
+		user = &models.User{Username: username, Password: password, IpAddr: ipAddr}
 		err = s.credRepo.AddUser(user)
 		if err != nil {
-			log.WithFields(log.Fields{
+			log.Logger.WithFields(logrus.Fields{
 				"username": username,
 				"ip_addr":  ipAddr,
 			}).WithError(err).Errorln("Error on creating user")
@@ -111,7 +120,7 @@ func (s *MountServer) RegisterHandler(w http.ResponseWriter, req *http.Request) 
 		}
 		s.activeUsers = append(s.activeUsers, user)
 
-		log.WithFields(log.Fields{
+		log.Logger.WithFields(logrus.Fields{
 			"username": username,
 			"ip_addr":  ipAddr,
 		}).Infoln("User successfully register")
@@ -127,14 +136,14 @@ func (s *MountServer) LogoutHandler(w http.ResponseWriter, req *http.Request) {
 	username, _, ok := req.BasicAuth()
 	if ok {
 		ipAddr := req.RemoteAddr
-		log.WithFields(log.Fields{
+		log.Logger.WithFields(logrus.Fields{
 			"username": username,
 			"ip_addr":  ipAddr,
 		}).Infoln("User logout...")
 
 		user, ind := findUserByUsername(s.activeUsers, username)
 		if user == nil {
-			log.WithFields(log.Fields{
+			log.Logger.WithFields(logrus.Fields{
 				"username": username,
 				"ip_addr":  ipAddr,
 			}).Warningln("User not in active users")
@@ -145,7 +154,7 @@ func (s *MountServer) LogoutHandler(w http.ResponseWriter, req *http.Request) {
 
 		s.activeUsers = append(s.activeUsers[:ind], s.activeUsers[ind+1:]...)
 
-		log.WithFields(log.Fields{
+		log.Logger.WithFields(logrus.Fields{
 			"username": username,
 			"ip_addr":  ipAddr,
 		}).Infoln("User successfully logout")
@@ -198,7 +207,7 @@ func (s *MountServer) setupRouter() {
 }
 
 func (s *MountServer) Run() {
-	log.Fatal(http.ListenAndServe(":8080", s.router))
+	log.Logger.Fatal(http.ListenAndServe(":8080", s.router))
 }
 
 func readUserIP(r *http.Request) (net.IP, error) {
@@ -210,7 +219,7 @@ func readUserIP(r *http.Request) (net.IP, error) {
 		ipAddr = r.RemoteAddr
 	}
 
-	if strings.ContainsAny(ipAddr, "[::1]") {
+	if strings.Contains(ipAddr, "[::1]") {
 		return net.ParseIP("127.0.0.1"), nil
 	}
 
